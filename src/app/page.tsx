@@ -30,6 +30,8 @@ export default function Home() {
     const [dragOver, setDragOver] = useState(false);
     const [showRules, setShowRules] = useState(false);
     const [rulesFilterCat, setRulesFilterCat] = useState<Category | 'all'>('all');
+    const [loadingFiles, setLoadingFiles] = useState(false);
+    const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 });
     const fileInputRef = useRef<HTMLInputElement>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
@@ -42,6 +44,9 @@ export default function Home() {
 
         if (validFiles.length === 0) return;
 
+        setLoadingFiles(true);
+        setLoadProgress({ loaded: 0, total: validFiles.length });
+
         let loaded = 0;
         validFiles.forEach((file) => {
             const reader = new FileReader();
@@ -52,8 +57,10 @@ export default function Home() {
                     path: file.webkitRelativePath || file.name,
                 });
                 loaded++;
+                setLoadProgress({ loaded, total: validFiles.length });
                 if (loaded === validFiles.length) {
                     setFiles(prev => [...prev, ...newFiles]);
+                    setLoadingFiles(false);
                 }
             };
             reader.readAsText(file);
@@ -667,7 +674,42 @@ export default function Home() {
                         )}
                     </section>
                 )}
+
+                {/* ===== FILE LOADING OVERLAY ===== */}
+                {loadingFiles && (
+                    <div className="file-loading-overlay">
+                        <div className="file-loading-card">
+                            <div className="file-loading-spinner" />
+                            <div className="file-loading-title">Loading files...</div>
+                            <div className="file-loading-progress">
+                                {loadProgress.loaded} / {loadProgress.total} files processed
+                            </div>
+                            <div className="file-loading-bar-track">
+                                <div
+                                    className="file-loading-bar-fill"
+                                    style={{ width: `${loadProgress.total > 0 ? (loadProgress.loaded / loadProgress.total) * 100 : 0}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
+
+            {/* ===== FOOTER ===== */}
+            <footer className="app-footer">
+                <div className="footer-content">
+                    <div className="footer-copyright">
+                        © {new Date().getFullYear()} <strong>Muhammad Rajib Hawlader</strong>. All rights reserved.
+                    </div>
+                    <div className="footer-links">
+                        <a href="https://rajib.uk" target="_blank" rel="noopener noreferrer" className="footer-link">
+                            🌐 rajib.uk
+                        </a>
+                        <span className="footer-divider">•</span>
+                        <span className="footer-app-name">SecureScan v1.0</span>
+                    </div>
+                </div>
+            </footer>
         </>
     );
 }
