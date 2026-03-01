@@ -221,6 +221,7 @@ export default function Home() {
             const tableData = result.vulnerabilities.map(v => [
                 v.severity.toUpperCase(),
                 v.ruleId,
+                v.cwe || 'N/A',
                 `${v.file}:${v.line}`,
                 v.name,
                 v.description
@@ -228,7 +229,7 @@ export default function Home() {
 
             autoTable(doc, {
                 startY: finalY + 20,
-                head: [['Severity', 'ID', 'Location', 'Name', 'Description']],
+                head: [['Severity', 'ID', 'CWE', 'Location', 'Name', 'Description']],
                 body: tableData,
                 theme: 'striped',
                 headStyles: { fillColor: [52, 73, 94], textColor: 255 },
@@ -236,9 +237,10 @@ export default function Home() {
                 columnStyles: {
                     0: { cellWidth: 22, fontStyle: 'bold' },
                     1: { cellWidth: 20 },
-                    2: { cellWidth: 40 },
-                    3: { cellWidth: 40 },
-                    4: { cellWidth: 'auto' }
+                    2: { cellWidth: 16 },
+                    3: { cellWidth: 35 },
+                    4: { cellWidth: 35 },
+                    5: { cellWidth: 'auto' }
                 },
                 didParseCell: function (data) {
                     if (data.section === 'body' && data.column.index === 0) {
@@ -257,6 +259,20 @@ export default function Home() {
             doc.setFontSize(12);
             doc.setTextColor(22, 163, 74); // Green
             doc.text('No vulnerabilities found. Code is secure!', 14, finalY + 15);
+        }
+
+        // Add footer with copyright
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(10);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+                `© ${new Date().getFullYear()} Muhammad Rajib Hawlader. All rights reserved.`,
+                doc.internal.pageSize.getWidth() / 2,
+                doc.internal.pageSize.getHeight() - 10,
+                { align: 'center' }
+            );
         }
 
         doc.save(`security-report-${new Date().toISOString().slice(0, 10)}.pdf`);
