@@ -1,5 +1,5 @@
 import { vulnerabilityRules } from './rules';
-import { FileInput, ScanResult, Vulnerability, Severity } from './types';
+import { FileInput, ScanResult, Vulnerability, Severity, Category } from './types';
 
 let idCounter = 0;
 
@@ -39,7 +39,28 @@ function getCodeSnippet(
 export function scanFile(file: FileInput): Vulnerability[] {
     const vulnerabilities: Vulnerability[] = [];
 
+    // Extract file extension and explicitly define the type
+    const filename = file.path || file.name;
+    const fileExtMatch = filename.split('.').pop();
+    const fileExt = fileExtMatch ? '.' + fileExtMatch.toLowerCase() : '';
+
+    // Define valid extensions for language-specific categories
+    const categoryExtensions: Partial<Record<Category, string[]>> = {
+        'python-specific': ['.py'],
+        'php-specific': ['.php'],
+        'go-specific': ['.go'],
+        'cpp-specific': ['.c', '.cpp', '.h', '.hpp', '.cc', '.cxx'],
+        'nextjs-specific': ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'],
+        'react-specific': ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'],
+    };
+
     for (const rule of vulnerabilityRules) {
+        // Skip rule if it has a file extension requirement that doesn't match the current file
+        const requiredExts = categoryExtensions[rule.category];
+        if (requiredExts && fileExt && !requiredExts.includes(fileExt)) {
+            continue;
+        }
+
         const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
         let match: RegExpExecArray | null;
 
