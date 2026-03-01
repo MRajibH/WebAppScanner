@@ -2,6 +2,8 @@
 const nextConfig = {
     output: 'export',
     reactStrictMode: true,
+    basePath: '/WebAppScanner',
+    assetPrefix: '/WebAppScanner/',
     images: {
         unoptimized: true,
     },
