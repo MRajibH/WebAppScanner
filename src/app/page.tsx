@@ -5,7 +5,7 @@ import { scanFiles } from '@/lib/scanner/scanner';
 import { vulnerabilityRules } from '@/lib/scanner/rules';
 import { ScanResult, FileInput, Severity, Category, CATEGORY_LABELS, SEVERITY_COLORS } from '@/lib/scanner/types';
 
-const VALID_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css', '.html'];
+const VALID_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css', '.html', '.py', '.php', '.go', '.c', '.cpp', '.h', '.hpp', '.cc', '.cxx'];
 const IGNORED_DIRS = ['node_modules', '.next', '.git', 'dist', 'build', '.cache', 'coverage', '__pycache__'];
 
 function isValidFile(name: string, path: string): boolean {
@@ -266,8 +266,8 @@ export default function Home() {
                         Security Vulnerabilities
                     </h1>
                     <p className="hero-description">
-                        Detect XSS, injection flaws, hardcoded secrets, misconfigurations, and
-                        React/Next.js-specific security issues in your codebase instantly.
+                        Detect XSS, injection flaws, hardcoded secrets, buffer overflows, and
+                        security issues across JavaScript, Python, PHP, Go, and C/C++ instantly.
                     </p>
                     <div className="hero-features">
                         <span className="hero-feature">
@@ -277,7 +277,7 @@ export default function Home() {
                             <span className="hero-feature-icon">🔍</span> {vulnerabilityRules.length} Security Rules
                         </span>
                         <span className="hero-feature">
-                            <span className="hero-feature-icon">🎯</span> Next.js & React Specific
+                            <span className="hero-feature-icon">🎯</span> Multi-Language Support
                         </span>
                         <span className="hero-feature">
                             <span className="hero-feature-icon">📁</span> Full Folder Upload
@@ -346,13 +346,13 @@ export default function Home() {
                                     Upload individual React & Next.js source files
                                 </div>
                                 <div className="file-uploader-formats">
-                                    Supported: .ts, .tsx, .js, .jsx, .mjs, .cjs, .json, .css, .html
+                                    JS/TS, Python, PHP, Go, C/C++, JSON, CSS, HTML
                                 </div>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
                                     multiple
-                                    accept=".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.css,.html"
+                                    accept=".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.css,.html,.py,.php,.go,.c,.cpp,.h,.hpp,.cc,.cxx"
                                     onChange={handleFileSelect}
                                     style={{ display: 'none' }}
                                 />
@@ -396,7 +396,7 @@ export default function Home() {
                                     Upload your entire React or Next.js project folder
                                 </div>
                                 <div className="file-uploader-formats">
-                                    Scans all .ts, .tsx, .js, .jsx, .json, .css, .html files recursively
+                                    Scans JS/TS, Python, PHP, Go, C/C++ and more — recursively
                                 </div>
                                 <div className="folder-upload-hints">
                                     <span className="folder-hint">✅ Auto-skips node_modules, .next, .git, dist</span>

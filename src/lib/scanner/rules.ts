@@ -500,4 +500,508 @@ export const vulnerabilityRules: VulnerabilityRule[] = [
         fix: 'Validate file types, sizes, and names. Restrict allowed file extensions and scan for malware.',
         cwe: 'CWE-434',
     },
+
+    // ==================== PYTHON SPECIFIC ====================
+    {
+        id: 'PY-001',
+        name: 'Python eval() Usage',
+        description:
+            'eval() executes arbitrary Python code and is extremely dangerous with user input.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /\beval\s*\(\s*(?:request|input|sys\.argv|os\.environ|data|params|args)/g,
+        fix: 'Use ast.literal_eval() for safe evaluation of literals, or parse input explicitly.',
+        cwe: 'CWE-94',
+    },
+    {
+        id: 'PY-002',
+        name: 'Python exec() Usage',
+        description:
+            'exec() executes arbitrary Python code, enabling code injection attacks.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /\bexec\s*\(/g,
+        fix: 'Avoid exec() entirely. Use structured approaches like safe parsers or predefined functions.',
+        cwe: 'CWE-94',
+    },
+    {
+        id: 'PY-003',
+        name: 'Python os.system() Command Injection',
+        description:
+            'os.system() passes commands to the shell, enabling command injection.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /os\.system\s*\(/g,
+        fix: 'Use subprocess.run() with a list of arguments and shell=False instead of os.system().',
+        cwe: 'CWE-78',
+    },
+    {
+        id: 'PY-004',
+        name: 'Python subprocess with shell=True',
+        description:
+            'Using subprocess with shell=True allows shell injection attacks.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /subprocess\.(?:call|run|Popen|check_output|check_call)\s*\([^)]*shell\s*=\s*True/g,
+        fix: 'Use subprocess with shell=False (default) and pass arguments as a list.',
+        cwe: 'CWE-78',
+    },
+    {
+        id: 'PY-005',
+        name: 'Python Pickle Deserialization',
+        description:
+            'pickle.loads() can execute arbitrary code during deserialization of untrusted data.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /pickle\.(?:loads?|Unpickler)\s*\(/g,
+        fix: 'Never unpickle data from untrusted sources. Use JSON or other safe serialization formats.',
+        cwe: 'CWE-502',
+    },
+    {
+        id: 'PY-006',
+        name: 'Python SQL String Formatting',
+        description:
+            'Using string formatting in SQL queries leads to SQL injection vulnerabilities.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /(?:execute|executemany)\s*\(\s*(?:f["']|["'].*%s|["'].*\.format\(|["'].*\+)/g,
+        fix: 'Use parameterized queries with placeholders: cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))',
+        cwe: 'CWE-89',
+    },
+    {
+        id: 'PY-007',
+        name: 'Python YAML Unsafe Load',
+        description:
+            'yaml.load() without SafeLoader can execute arbitrary Python code.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /yaml\.load\s*\([^)]*(?!Loader\s*=\s*(?:yaml\.)?SafeLoader|Loader\s*=\s*(?:yaml\.)?CSafeLoader)/g,
+        fix: 'Use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader).',
+        cwe: 'CWE-502',
+    },
+    {
+        id: 'PY-008',
+        name: 'Python Hardcoded Secret',
+        description:
+            'Secrets hardcoded in Python source code can be extracted from bytecode or source.',
+        severity: 'critical',
+        category: 'python-specific',
+        pattern: /(?:SECRET_KEY|DATABASE_PASSWORD|API_KEY|AWS_SECRET)\s*=\s*["'][^"']{8,}["']/g,
+        fix: 'Use environment variables (os.environ) or a secrets manager for sensitive values.',
+        cwe: 'CWE-798',
+    },
+    {
+        id: 'PY-009',
+        name: 'Python Debug Mode in Production',
+        description:
+            'Running Flask/Django with debug mode enabled in production exposes detailed error pages and allows code execution.',
+        severity: 'high',
+        category: 'python-specific',
+        pattern: /(?:app\.run\s*\([^)]*debug\s*=\s*True|DEBUG\s*=\s*True)/g,
+        fix: 'Set debug=False in production. Use environment variables to control debug mode.',
+        cwe: 'CWE-489',
+    },
+    {
+        id: 'PY-010',
+        name: 'Python Weak Hash (MD5/SHA1)',
+        description:
+            'MD5 and SHA1 are cryptographically broken and should not be used for security.',
+        severity: 'high',
+        category: 'python-specific',
+        pattern: /hashlib\.(?:md5|sha1)\s*\(/g,
+        fix: 'Use hashlib.sha256() or hashlib.sha3_256() for hashing. Use bcrypt for passwords.',
+        cwe: 'CWE-328',
+    },
+    {
+        id: 'PY-011',
+        name: 'Python Jinja2 No Auto-Escape',
+        description:
+            'Disabling auto-escaping in Jinja2 templates enables XSS attacks.',
+        severity: 'high',
+        category: 'python-specific',
+        pattern: /Environment\s*\([^)]*autoescape\s*=\s*False/g,
+        fix: 'Set autoescape=True in Jinja2 Environment or use select_autoescape().',
+        cwe: 'CWE-79',
+    },
+    {
+        id: 'PY-012',
+        name: 'Python Temporary File Race Condition',
+        description:
+            'Using mktemp() creates a race condition. The file can be replaced between creation and use.',
+        severity: 'medium',
+        category: 'python-specific',
+        pattern: /tempfile\.mktemp\s*\(/g,
+        fix: 'Use tempfile.mkstemp() or tempfile.NamedTemporaryFile() for secure temporary files.',
+        cwe: 'CWE-377',
+    },
+    {
+        id: 'PY-013',
+        name: 'Python Assert in Production',
+        description:
+            'Assert statements are removed when Python runs with -O flag, bypassing security checks.',
+        severity: 'medium',
+        category: 'python-specific',
+        pattern: /\bassert\s+(?:request|user|session|token|auth|permission)/g,
+        fix: 'Use proper if statements with exceptions for security checks instead of assert.',
+        cwe: 'CWE-617',
+    },
+
+    // ==================== PHP SPECIFIC ====================
+    {
+        id: 'PHP-001',
+        name: 'PHP SQL Injection',
+        description:
+            'Concatenating user input into SQL queries in PHP leads to SQL injection.',
+        severity: 'critical',
+        category: 'php-specific',
+        pattern: /(?:mysql_query|mysqli_query|pg_query|\$\w+->query)\s*\(\s*["'](?:SELECT|INSERT|UPDATE|DELETE|DROP).*\$(?:_GET|_POST|_REQUEST|_COOKIE)/gi,
+        fix: 'Use prepared statements with PDO or MySQLi: $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?"); $stmt->execute([$id]);',
+        cwe: 'CWE-89',
+    },
+    {
+        id: 'PHP-002',
+        name: 'PHP eval() Usage',
+        description:
+            'eval() in PHP executes arbitrary PHP code and is extremely dangerous.',
+        severity: 'critical',
+        category: 'php-specific',
+        pattern: /\beval\s*\(\s*\$/g,
+        fix: 'Never use eval() with user input. Restructure code to use proper PHP functions and classes.',
+        cwe: 'CWE-94',
+    },
+    {
+        id: 'PHP-003',
+        name: 'PHP system/exec Command Injection',
+        description:
+            'PHP system(), exec(), passthru(), and shell_exec() can execute arbitrary commands.',
+        severity: 'critical',
+        category: 'php-specific',
+        pattern: /(?:system|exec|passthru|shell_exec|popen|proc_open)\s*\(\s*\$/g,
+        fix: 'Use escapeshellarg() and escapeshellcmd() to sanitize input. Prefer specific PHP functions over shell commands.',
+        cwe: 'CWE-78',
+    },
+    {
+        id: 'PHP-004',
+        name: 'PHP Unserialize Vulnerability',
+        description:
+            'unserialize() with untrusted data can lead to object injection and remote code execution.',
+        severity: 'critical',
+        category: 'php-specific',
+        pattern: /\bunserialize\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE|input|data)/g,
+        fix: 'Use json_decode() instead of unserialize() for data exchange. If unserialize is needed, use allowed_classes option.',
+        cwe: 'CWE-502',
+    },
+    {
+        id: 'PHP-005',
+        name: 'PHP File Inclusion (LFI/RFI)',
+        description:
+            'Including files based on user input can lead to Local/Remote File Inclusion attacks.',
+        severity: 'critical',
+        category: 'php-specific',
+        pattern: /(?:include|require|include_once|require_once)\s*\(\s*\$(?:_GET|_POST|_REQUEST|file|path|page|input)/g,
+        fix: 'Never use user input in file inclusion paths. Use a whitelist of allowed files.',
+        cwe: 'CWE-98',
+    },
+    {
+        id: 'PHP-006',
+        name: 'PHP extract() Usage',
+        description:
+            'extract() can overwrite existing variables including security-critical ones.',
+        severity: 'high',
+        category: 'php-specific',
+        pattern: /\bextract\s*\(\s*\$(?:_GET|_POST|_REQUEST|_COOKIE|data|input)/g,
+        fix: 'Avoid extract() with user data. Access array elements directly or use extract() with EXTR_SKIP flag.',
+        cwe: 'CWE-621',
+    },
+    {
+        id: 'PHP-007',
+        name: 'PHP XSS via Echo',
+        description:
+            'Echoing user input without escaping leads to Cross-Site Scripting.',
+        severity: 'high',
+        category: 'php-specific',
+        pattern: /(?:echo|print)\s+\$(?:_GET|_POST|_REQUEST|_COOKIE)\s*\[/g,
+        fix: 'Always escape output with htmlspecialchars($input, ENT_QUOTES, "UTF-8").',
+        cwe: 'CWE-79',
+    },
+    {
+        id: 'PHP-008',
+        name: 'PHP Weak Password Hashing',
+        description:
+            'Using md5() or sha1() for password hashing is insecure.',
+        severity: 'high',
+        category: 'php-specific',
+        pattern: /(?:md5|sha1)\s*\(\s*\$(?:password|passwd|pass|pwd)/gi,
+        fix: 'Use password_hash() with PASSWORD_BCRYPT or PASSWORD_ARGON2ID for secure password hashing.',
+        cwe: 'CWE-328',
+    },
+    {
+        id: 'PHP-009',
+        name: 'PHP Deprecated mysql_ Functions',
+        description:
+            'The mysql_ extension is removed since PHP 7.0 and has known security issues.',
+        severity: 'high',
+        category: 'php-specific',
+        pattern: /\bmysql_(?:connect|query|fetch|select_db|real_escape_string)\s*\(/g,
+        fix: 'Upgrade to PDO or MySQLi with prepared statements.',
+        cwe: 'CWE-477',
+    },
+    {
+        id: 'PHP-010',
+        name: 'PHP Direct Superglobal in SQL',
+        description:
+            'Using $_GET, $_POST, or $_REQUEST directly in queries is a SQL injection vector.',
+        severity: 'critical',
+        category: 'php-specific',
+        pattern: /["'](?:SELECT|INSERT|UPDATE|DELETE)\s+.*\$_(?:GET|POST|REQUEST)\s*\[/gi,
+        fix: 'Always use prepared statements. Validate and sanitize all input before use.',
+        cwe: 'CWE-89',
+    },
+    {
+        id: 'PHP-011',
+        name: 'PHP Exposed phpinfo()',
+        description:
+            'phpinfo() exposes server configuration details to attackers.',
+        severity: 'medium',
+        category: 'php-specific',
+        pattern: /\bphpinfo\s*\(\s*\)/g,
+        fix: 'Remove phpinfo() calls from production code. Use it only in restricted local development.',
+        cwe: 'CWE-200',
+    },
+
+    // ==================== GO SPECIFIC ====================
+    {
+        id: 'GO-001',
+        name: 'Go SQL Injection',
+        description:
+            'String concatenation or fmt.Sprintf in Go SQL queries leads to SQL injection.',
+        severity: 'critical',
+        category: 'go-specific',
+        pattern: /(?:db\.(?:Query|Exec|QueryRow)|\.(?:Query|Exec|QueryRow))\s*\(\s*(?:fmt\.Sprintf|"[^"]*"\s*\+|\w+\s*\+\s*")/g,
+        fix: 'Use parameterized queries with placeholders: db.Query("SELECT * FROM users WHERE id = $1", userID)',
+        cwe: 'CWE-89',
+    },
+    {
+        id: 'GO-002',
+        name: 'Go os/exec Command Injection',
+        description:
+            'Using os/exec with unsanitized user input can lead to command injection.',
+        severity: 'critical',
+        category: 'go-specific',
+        pattern: /exec\.Command\s*\(\s*(?:fmt\.Sprintf|[^")\s]+\s*\+|r\.(?:FormValue|URL\.Query))/g,
+        fix: 'Validate and sanitize all user input before passing to exec.Command. Use a whitelist of allowed commands.',
+        cwe: 'CWE-78',
+    },
+    {
+        id: 'GO-003',
+        name: 'Go Unescaped HTML Template',
+        description:
+            'Using text/template instead of html/template for web output enables XSS.',
+        severity: 'high',
+        category: 'go-specific',
+        pattern: /["']text\/template["']/g,
+        fix: 'Use "html/template" instead of "text/template" for rendering HTML to auto-escape user content.',
+        cwe: 'CWE-79',
+    },
+    {
+        id: 'GO-004',
+        name: 'Go TLS InsecureSkipVerify',
+        description:
+            'Setting InsecureSkipVerify to true disables TLS certificate validation.',
+        severity: 'critical',
+        category: 'go-specific',
+        pattern: /InsecureSkipVerify\s*:\s*true/g,
+        fix: 'Remove InsecureSkipVerify: true. Configure proper TLS certificates for secure communication.',
+        cwe: 'CWE-295',
+    },
+    {
+        id: 'GO-005',
+        name: 'Go Hardcoded Credentials',
+        description:
+            'Hardcoded credentials in Go source code are easily extractable from compiled binaries.',
+        severity: 'critical',
+        category: 'go-specific',
+        pattern: /(?:password|apiKey|secret|token)\s*(?::=|=)\s*"[^"]{8,}"/g,
+        fix: 'Use environment variables (os.Getenv) or a vault/secrets manager for credentials.',
+        cwe: 'CWE-798',
+    },
+    {
+        id: 'GO-006',
+        name: 'Go Weak Random Number',
+        description:
+            'math/rand is not cryptographically secure and should not be used for security-sensitive operations.',
+        severity: 'medium',
+        category: 'go-specific',
+        pattern: /["']math\/rand["']/g,
+        fix: 'Use "crypto/rand" for cryptographically secure random number generation.',
+        cwe: 'CWE-338',
+    },
+    {
+        id: 'GO-007',
+        name: 'Go Unhandled Error',
+        description:
+            'Ignoring errors in Go can hide security issues and lead to unexpected behavior.',
+        severity: 'medium',
+        category: 'go-specific',
+        pattern: /\b\w+\s*,\s*_\s*(?::=|=)\s*(?:\w+\.(?:Query|Exec|Open|Read|Write|Dial|Listen|Get|Post))/g,
+        fix: 'Always handle errors: if err != nil { return err }. Never silently discard errors.',
+        cwe: 'CWE-391',
+    },
+    {
+        id: 'GO-008',
+        name: 'Go HTTP Without Timeout',
+        description:
+            'Creating HTTP servers or clients without timeouts can lead to denial of service.',
+        severity: 'medium',
+        category: 'go-specific',
+        pattern: /http\.ListenAndServe\s*\(/g,
+        fix: 'Use http.Server{} with ReadTimeout, WriteTimeout, and IdleTimeout configured.',
+        cwe: 'CWE-400',
+    },
+    {
+        id: 'GO-009',
+        name: 'Go Path Traversal',
+        description:
+            'Using user input in file paths without sanitization enables path traversal attacks.',
+        severity: 'high',
+        category: 'go-specific',
+        pattern: /(?:os\.Open|os\.ReadFile|ioutil\.ReadFile|os\.Create)\s*\(\s*(?:r\.(?:FormValue|URL\.Query)|fmt\.Sprintf|[^")]+\s*\+)/g,
+        fix: 'Use filepath.Clean() and validate that the resolved path is within the expected directory.',
+        cwe: 'CWE-22',
+    },
+    {
+        id: 'GO-010',
+        name: 'Go Goroutine Leak Risk',
+        description:
+            'Starting goroutines without proper lifecycle management can cause resource leaks.',
+        severity: 'low',
+        category: 'go-specific',
+        pattern: /go\s+func\s*\(\s*\)\s*\{[^}]*for\s*\{/g,
+        fix: 'Use context.Context for goroutine cancellation. Ensure all goroutines have exit conditions.',
+        cwe: 'CWE-400',
+    },
+
+    // ==================== C/C++ SPECIFIC ====================
+    {
+        id: 'CPP-001',
+        name: 'C/C++ gets() Usage',
+        description:
+            'gets() has no bounds checking and always causes a buffer overflow vulnerability.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /\bgets\s*\(/g,
+        fix: 'Use fgets() with a buffer size limit: fgets(buffer, sizeof(buffer), stdin)',
+        cwe: 'CWE-120',
+    },
+    {
+        id: 'CPP-002',
+        name: 'C/C++ strcpy Buffer Overflow',
+        description:
+            'strcpy() does not check buffer bounds and can cause buffer overflows.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /\bstrcpy\s*\(/g,
+        fix: 'Use strncpy() or strlcpy() with proper size limits, or use std::string in C++.',
+        cwe: 'CWE-120',
+    },
+    {
+        id: 'CPP-003',
+        name: 'C/C++ sprintf Buffer Overflow',
+        description:
+            'sprintf() does not check buffer bounds and can cause buffer overflows.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /\bsprintf\s*\(/g,
+        fix: 'Use snprintf() with proper buffer size limits.',
+        cwe: 'CWE-120',
+    },
+    {
+        id: 'CPP-004',
+        name: 'C/C++ strcat Buffer Overflow',
+        description:
+            'strcat() does not check buffer bounds and can cause buffer overflows when concatenating strings.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /\bstrcat\s*\(/g,
+        fix: 'Use strncat() with proper size limits, or use std::string in C++.',
+        cwe: 'CWE-120',
+    },
+    {
+        id: 'CPP-005',
+        name: 'C/C++ scanf Buffer Overflow',
+        description:
+            'scanf() with %s does not limit input size, causing buffer overflows.',
+        severity: 'high',
+        category: 'cpp-specific',
+        pattern: /\bscanf\s*\(\s*["'][^"']*%s/g,
+        fix: 'Use scanf with width specifier: scanf("%99s", buffer) or use fgets().',
+        cwe: 'CWE-120',
+    },
+    {
+        id: 'CPP-006',
+        name: 'C/C++ Format String Vulnerability',
+        description:
+            'Passing user-controlled strings as format arguments enables format string attacks.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /(?:printf|fprintf|sprintf|snprintf|syslog)\s*\(\s*(?!.*["'])\w+\s*\)/g,
+        fix: 'Always use a format string: printf("%s", user_input) instead of printf(user_input).',
+        cwe: 'CWE-134',
+    },
+    {
+        id: 'CPP-007',
+        name: 'C/C++ malloc Without Null Check',
+        description:
+            'Using malloc() result without checking for NULL can cause null pointer dereference.',
+        severity: 'high',
+        category: 'cpp-specific',
+        pattern: /\w+\s*=\s*(?:malloc|calloc|realloc)\s*\([^)]+\)\s*;(?!\s*if\s*\()/g,
+        fix: 'Always check if malloc returns NULL: if (ptr == NULL) { handle_error(); }',
+        cwe: 'CWE-476',
+    },
+    {
+        id: 'CPP-008',
+        name: 'C/C++ Use After Free Risk',
+        description:
+            'Using memory after free() leads to undefined behavior and potential code execution.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /free\s*\(\s*(\w+)\s*\)\s*;(?!\s*\1\s*=\s*NULL)/g,
+        fix: 'Set pointer to NULL after free: free(ptr); ptr = NULL; Or use smart pointers in C++.',
+        cwe: 'CWE-416',
+    },
+    {
+        id: 'CPP-009',
+        name: 'C/C++ system() Command Injection',
+        description:
+            'system() passes commands to the shell, enabling command injection attacks.',
+        severity: 'critical',
+        category: 'cpp-specific',
+        pattern: /\bsystem\s*\(\s*(?!["'])/g,
+        fix: 'Avoid system(). Use exec family functions (execve, execvp) with proper argument lists.',
+        cwe: 'CWE-78',
+    },
+    {
+        id: 'CPP-010',
+        name: 'C/C++ Integer Overflow Risk',
+        description:
+            'Arithmetic operations without overflow checking can lead to integer overflow vulnerabilities.',
+        severity: 'medium',
+        category: 'cpp-specific',
+        pattern: /(?:int|short|long)\s+\w+\s*=\s*\w+\s*[*+]\s*\w+/g,
+        fix: 'Check for overflow before arithmetic: if (a > INT_MAX - b) { error; } Or use safe integer libraries.',
+        cwe: 'CWE-190',
+    },
+    {
+        id: 'CPP-011',
+        name: 'C/C++ Weak Random (rand)',
+        description:
+            'rand() and srand() produce predictable values and should not be used for security.',
+        severity: 'medium',
+        category: 'cpp-specific',
+        pattern: /\b(?:srand|rand)\s*\(/g,
+        fix: 'Use cryptographically secure alternatives: /dev/urandom, CryptGenRandom(), or std::random_device in C++.',
+        cwe: 'CWE-338',
+    },
 ];
+

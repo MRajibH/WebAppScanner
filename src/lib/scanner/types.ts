@@ -8,7 +8,11 @@ export type Category =
     | 'authentication'
     | 'nextjs-specific'
     | 'react-specific'
-    | 'misconfiguration';
+    | 'misconfiguration'
+    | 'python-specific'
+    | 'php-specific'
+    | 'go-specific'
+    | 'cpp-specific';
 
 export interface VulnerabilityRule {
     id: string;
@@ -74,6 +78,10 @@ export const CATEGORY_LABELS: Record<Category, string> = {
     'nextjs-specific': 'Next.js Security',
     'react-specific': 'React Security',
     misconfiguration: 'Misconfiguration',
+    'python-specific': 'Python Security',
+    'php-specific': 'PHP Security',
+    'go-specific': 'Go Security',
+    'cpp-specific': 'C/C++ Security',
 };
 
 export const SEVERITY_COLORS: Record<Severity, string> = {
