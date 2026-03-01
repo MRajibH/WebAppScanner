@@ -330,7 +330,7 @@ export default function Home() {
             doc.setFontSize(10);
             doc.setTextColor(150, 150, 150);
             doc.text(
-                `© ${new Date().getFullYear()} Muhammad Rajib Hawlader. All rights reserved. | rajib.uk`,
+                `© ${new Date().getFullYear()} Muhammad Rajib Hawlader. All rights reserved. | https://rajib.uk | rajib104.ewubd@gmail.com`,
                 doc.internal.pageSize.getWidth() / 2,
                 doc.internal.pageSize.getHeight() - 10,
                 { align: 'center' }
