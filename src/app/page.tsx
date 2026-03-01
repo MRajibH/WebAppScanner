@@ -158,10 +158,11 @@ export default function Home() {
         if (!result) return;
 
         const doc = new jsPDF();
+        const primaryColor: [number, number, number] = [41, 128, 185]; // A nice, premium blue
 
         // Title
         doc.setFontSize(22);
-        doc.setTextColor(40, 40, 40);
+        doc.setTextColor(...primaryColor);
         doc.text('SecureScan Security Report', 14, 22);
 
         // Date and Meta
@@ -171,10 +172,38 @@ export default function Home() {
         doc.text(`Files Scanned: ${result.totalFiles}`, 14, 36);
         doc.text(`Scan Duration: ${result.duration}ms`, 14, 42);
 
-        // Summary Table
+        // --- Terms Definition Section (New) ---
         doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text('Scan Summary', 14, 55);
+        doc.setTextColor(...primaryColor);
+        doc.text('Terms Definition', 14, 55);
+
+        const termsData = [
+            ['CWE', 'Common Weakness Enumeration, a community-developed list of software/hardware weakness types.'],
+            ['Critical', 'Immediate remediation required. Highly exploitable vulnerabilities (e.g., RCE, SQLi).'],
+            ['High', 'High impact, potentially exploitable. Should be fixed as soon as possible.'],
+            ['Medium', 'Moderate impact. Fix in the next regular update cycle.'],
+            ['Low', 'Minimal impact, mostly defense-in-depth issues or minor bugs.'],
+            ['Info', 'Informational findings, best practices, or code hygiene suggestions.']
+        ];
+
+        autoTable(doc, {
+            startY: 60,
+            head: [['Term', 'Definition']],
+            body: termsData,
+            theme: 'grid',
+            headStyles: { fillColor: primaryColor, textColor: 255 },
+            styles: { fontSize: 9 },
+            columnStyles: {
+                0: { cellWidth: 25, fontStyle: 'bold' },
+                1: { cellWidth: 'auto' }
+            }
+        });
+
+        // --- Summary Table ---
+        let finalY = (doc as any).lastAutoTable.finalY || 60;
+        doc.setFontSize(14);
+        doc.setTextColor(...primaryColor);
+        doc.text('Scan Summary', 14, finalY + 15);
 
         const summaryData = [
             ['Critical', result.summary.critical.toString()],
@@ -186,11 +215,11 @@ export default function Home() {
         ];
 
         autoTable(doc, {
-            startY: 60,
+            startY: finalY + 20,
             head: [['Severity', 'Count']],
             body: summaryData,
             theme: 'grid',
-            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            headStyles: { fillColor: primaryColor, textColor: 255 },
             styles: { fontSize: 11 },
             columnStyles: {
                 0: { fontStyle: 'bold' }
@@ -210,13 +239,46 @@ export default function Home() {
             }
         });
 
-        // Detailed Findings
-        let finalY = (doc as any).lastAutoTable.finalY || 60;
+        // --- Category Overview (New) ---
+        finalY = (doc as any).lastAutoTable.finalY || 60;
+        doc.setFontSize(14);
+        doc.setTextColor(...primaryColor);
+        doc.text('Category Overview', 14, finalY + 15);
+
+        const categoryCounts: Record<string, number> = {};
+        result.vulnerabilities.forEach(v => {
+            const label = CATEGORY_LABELS[v.category];
+            categoryCounts[label] = (categoryCounts[label] || 0) + 1;
+        });
+
+        const categoryData = Object.keys(categoryCounts)
+            .sort((a, b) => categoryCounts[b] - categoryCounts[a]) // Sort by highest count
+            .map(cat => [cat, categoryCounts[cat].toString()]);
+
+        if (categoryData.length === 0) {
+            categoryData.push(['No vulnerabilities found', '0']);
+        }
+
+        autoTable(doc, {
+            startY: finalY + 20,
+            head: [['Category', 'Count']],
+            body: categoryData,
+            theme: 'grid',
+            headStyles: { fillColor: primaryColor, textColor: 255 },
+            styles: { fontSize: 10 },
+            columnStyles: {
+                1: { fontStyle: 'bold' } // bold up the number
+            }
+        });
+
+        // --- Detailed Findings ---
+        finalY = (doc as any).lastAutoTable.finalY || 60;
 
         if (result.vulnerabilities.length > 0) {
+            doc.addPage();
             doc.setFontSize(14);
-            doc.setTextColor(40, 40, 40);
-            doc.text('Detailed Findings', 14, finalY + 15);
+            doc.setTextColor(...primaryColor);
+            doc.text('Detailed Findings', 14, 20);
 
             const tableData = result.vulnerabilities.map(v => [
                 v.severity.toUpperCase(),
@@ -228,11 +290,11 @@ export default function Home() {
             ]);
 
             autoTable(doc, {
-                startY: finalY + 20,
+                startY: 25,
                 head: [['Severity', 'ID', 'CWE', 'Location', 'Name', 'Description']],
                 body: tableData,
                 theme: 'striped',
-                headStyles: { fillColor: [52, 73, 94], textColor: 255 },
+                headStyles: { fillColor: primaryColor, textColor: 255 },
                 styles: { fontSize: 9, cellPadding: 3 },
                 columnStyles: {
                     0: { cellWidth: 22, fontStyle: 'bold' },
@@ -268,7 +330,7 @@ export default function Home() {
             doc.setFontSize(10);
             doc.setTextColor(150, 150, 150);
             doc.text(
-                `© ${new Date().getFullYear()} Muhammad Rajib Hawlader. All rights reserved.`,
+                `© ${new Date().getFullYear()} Muhammad Rajib Hawlader. All rights reserved. | rajib.uk`,
                 doc.internal.pageSize.getWidth() / 2,
                 doc.internal.pageSize.getHeight() - 10,
                 { align: 'center' }
