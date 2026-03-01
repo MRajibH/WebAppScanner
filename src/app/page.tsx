@@ -2,10 +2,24 @@
 
 import { useState, useCallback, useRef, DragEvent, ChangeEvent } from 'react';
 import { scanFiles } from '@/lib/scanner/scanner';
-import { ScanResult, FileInput, Severity, Category, CATEGORY_LABELS } from '@/lib/scanner/types';
+import { vulnerabilityRules } from '@/lib/scanner/rules';
+import { ScanResult, FileInput, Severity, Category, CATEGORY_LABELS, SEVERITY_COLORS } from '@/lib/scanner/types';
+
+const VALID_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css', '.html'];
+const IGNORED_DIRS = ['node_modules', '.next', '.git', 'dist', 'build', '.cache', 'coverage', '__pycache__'];
+
+function isValidFile(name: string, path: string): boolean {
+    const ext = '.' + name.split('.').pop()?.toLowerCase();
+    if (!VALID_EXTENSIONS.includes(ext)) return false;
+    // Skip files inside ignored directories
+    for (const dir of IGNORED_DIRS) {
+        if (path.includes(`/${dir}/`) || path.startsWith(`${dir}/`)) return false;
+    }
+    return true;
+}
 
 export default function Home() {
-    const [inputMode, setInputMode] = useState<'paste' | 'upload'>('paste');
+    const [inputMode, setInputMode] = useState<'paste' | 'files' | 'folder'>('paste');
     const [codeInput, setCodeInput] = useState('');
     const [files, setFiles] = useState<FileInput[]>([]);
     const [scanning, setScanning] = useState(false);
@@ -14,29 +28,35 @@ export default function Home() {
     const [activeFilter, setActiveFilter] = useState<Severity | 'all'>('all');
     const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
     const [dragOver, setDragOver] = useState(false);
+    const [showRules, setShowRules] = useState(false);
+    const [rulesFilterCat, setRulesFilterCat] = useState<Category | 'all'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const folderInputRef = useRef<HTMLInputElement>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
 
     const handleFileRead = useCallback((fileList: FileList) => {
         const newFiles: FileInput[] = [];
-        const validExtensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css', '.html'];
+        const validFiles = Array.from(fileList).filter(f =>
+            isValidFile(f.name, f.webkitRelativePath || f.name)
+        );
 
-        Array.from(fileList).forEach((file) => {
-            const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-            if (validExtensions.includes(ext)) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    newFiles.push({
-                        name: file.name,
-                        content: e.target?.result as string,
-                        path: file.webkitRelativePath || file.name,
-                    });
-                    if (newFiles.length === Array.from(fileList).filter(f => validExtensions.includes('.' + f.name.split('.').pop()?.toLowerCase())).length) {
-                        setFiles(prev => [...prev, ...newFiles]);
-                    }
-                };
-                reader.readAsText(file);
-            }
+        if (validFiles.length === 0) return;
+
+        let loaded = 0;
+        validFiles.forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                newFiles.push({
+                    name: file.name,
+                    content: e.target?.result as string,
+                    path: file.webkitRelativePath || file.name,
+                });
+                loaded++;
+                if (loaded === validFiles.length) {
+                    setFiles(prev => [...prev, ...newFiles]);
+                }
+            };
+            reader.readAsText(file);
         });
     }, []);
 
@@ -73,12 +93,16 @@ export default function Home() {
         setFiles(prev => prev.filter((_, i) => i !== index));
     }, []);
 
+    const clearFiles = useCallback(() => {
+        setFiles([]);
+    }, []);
+
     const handleScan = useCallback(() => {
         let filesToScan: FileInput[] = [];
 
         if (inputMode === 'paste' && codeInput.trim()) {
             filesToScan = [{ name: 'pasted-code.tsx', content: codeInput, path: 'pasted-code.tsx' }];
-        } else if (inputMode === 'upload' && files.length > 0) {
+        } else if ((inputMode === 'files' || inputMode === 'folder') && files.length > 0) {
             filesToScan = files;
         } else {
             return;
@@ -90,7 +114,6 @@ export default function Home() {
         setActiveFilter('all');
         setCategoryFilter('all');
 
-        // Run scan client-side with a small delay for animation
         setTimeout(() => {
             const scanResult = scanFiles(filesToScan);
             setResult(scanResult);
@@ -130,7 +153,29 @@ export default function Home() {
 
     const canScan =
         (inputMode === 'paste' && codeInput.trim().length > 0) ||
-        (inputMode === 'upload' && files.length > 0);
+        ((inputMode === 'files' || inputMode === 'folder') && files.length > 0);
+
+    // Group rules by category for display
+    const rulesByCategory = vulnerabilityRules.reduce((acc, rule) => {
+        if (!acc[rule.category]) acc[rule.category] = [];
+        acc[rule.category].push(rule);
+        return acc;
+    }, {} as Record<string, typeof vulnerabilityRules>);
+
+    const filteredRules = rulesFilterCat === 'all'
+        ? vulnerabilityRules
+        : vulnerabilityRules.filter(r => r.category === rulesFilterCat);
+
+    // Get unique folder names from uploaded files
+    const folderStructure = files.reduce((acc, file) => {
+        const parts = file.path.split('/');
+        if (parts.length > 1) {
+            const folder = parts.slice(0, -1).join('/');
+            if (!acc.has(folder)) acc.set(folder, 0);
+            acc.set(folder, (acc.get(folder) || 0) + 1);
+        }
+        return acc;
+    }, new Map<string, number>());
 
     return (
         <>
@@ -143,11 +188,76 @@ export default function Home() {
                         <div className="header-subtitle">React & Next.js Security Scanner</div>
                     </div>
                 </div>
-                <div className="header-badge">v1.0 • 40+ Rules</div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <button
+                        className={`rules-toggle-btn ${showRules ? 'active' : ''}`}
+                        onClick={() => setShowRules(prev => !prev)}
+                    >
+                        📜 {showRules ? 'Hide Rules' : 'View All Rules'}
+                    </button>
+                    <div className="header-badge">v1.0 • {vulnerabilityRules.length} Rules</div>
+                </div>
             </header>
 
             {/* ===== MAIN ===== */}
             <main className="main-container">
+                {/* ===== RULES SHOWCASE ===== */}
+                {showRules && (
+                    <section className="rules-section">
+                        <div className="rules-header">
+                            <h2 className="rules-title">🔐 All Security Rules ({vulnerabilityRules.length})</h2>
+                            <p className="rules-subtitle">
+                                Complete list of vulnerability patterns that SecureScan checks for
+                            </p>
+                        </div>
+
+                        {/* Category Stats */}
+                        <div className="rules-category-stats">
+                            {(Object.keys(CATEGORY_LABELS) as Category[]).map(cat => {
+                                const count = rulesByCategory[cat]?.length || 0;
+                                if (count === 0) return null;
+                                return (
+                                    <button
+                                        key={cat}
+                                        className={`rules-cat-chip ${rulesFilterCat === cat ? 'active' : ''}`}
+                                        onClick={() => setRulesFilterCat(rulesFilterCat === cat ? 'all' : cat)}
+                                    >
+                                        {CATEGORY_LABELS[cat]} ({count})
+                                    </button>
+                                );
+                            })}
+                            {rulesFilterCat !== 'all' && (
+                                <button
+                                    className="rules-cat-chip clear"
+                                    onClick={() => setRulesFilterCat('all')}
+                                >
+                                    ✕ Clear
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Rules Grid */}
+                        <div className="rules-grid">
+                            {filteredRules.map((rule, i) => (
+                                <div key={rule.id} className="rule-card" style={{ animationDelay: `${i * 30}ms` }}>
+                                    <div className="rule-card-header">
+                                        <span className={`severity-badge ${rule.severity}`}>
+                                            {rule.severity}
+                                        </span>
+                                        <span className="rule-card-id">{rule.id}</span>
+                                        {rule.cwe && <span className="vuln-cwe-tag">{rule.cwe}</span>}
+                                    </div>
+                                    <h4 className="rule-card-name">{rule.name}</h4>
+                                    <p className="rule-card-desc">{rule.description}</p>
+                                    <div className="rule-card-category">
+                                        {CATEGORY_LABELS[rule.category]}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 {/* ===== HERO ===== */}
                 <section className="hero">
                     <h1 className="hero-title">
@@ -164,13 +274,13 @@ export default function Home() {
                             <span className="hero-feature-icon">⚡</span> Instant Analysis
                         </span>
                         <span className="hero-feature">
-                            <span className="hero-feature-icon">🔍</span> 40+ Security Rules
+                            <span className="hero-feature-icon">🔍</span> {vulnerabilityRules.length} Security Rules
                         </span>
                         <span className="hero-feature">
                             <span className="hero-feature-icon">🎯</span> Next.js & React Specific
                         </span>
                         <span className="hero-feature">
-                            <span className="hero-feature-icon">📋</span> Actionable Fixes
+                            <span className="hero-feature-icon">📁</span> Full Folder Upload
                         </span>
                     </div>
                 </section>
@@ -185,10 +295,16 @@ export default function Home() {
                             📝 Paste Code
                         </button>
                         <button
-                            className={`input-tab ${inputMode === 'upload' ? 'active' : ''}`}
-                            onClick={() => setInputMode('upload')}
+                            className={`input-tab ${inputMode === 'files' ? 'active' : ''}`}
+                            onClick={() => setInputMode('files')}
                         >
-                            📁 Upload Files
+                            📄 Upload Files
+                        </button>
+                        <button
+                            className={`input-tab ${inputMode === 'folder' ? 'active' : ''}`}
+                            onClick={() => setInputMode('folder')}
+                        >
+                            🗂️ Upload Folder
                         </button>
                     </div>
 
@@ -213,7 +329,7 @@ export default function Home() {
                                 spellCheck={false}
                             />
                         </div>
-                    ) : (
+                    ) : inputMode === 'files' ? (
                         <>
                             <div
                                 className={`file-uploader ${dragOver ? 'drag-over' : ''}`}
@@ -222,12 +338,12 @@ export default function Home() {
                                 onDragLeave={handleDragLeave}
                                 onClick={() => fileInputRef.current?.click()}
                             >
-                                <div className="file-uploader-icon">📂</div>
+                                <div className="file-uploader-icon">📄</div>
                                 <div className="file-uploader-title">
                                     Drop files here or click to browse
                                 </div>
                                 <div className="file-uploader-text">
-                                    Upload your React & Next.js source files
+                                    Upload individual React & Next.js source files
                                 </div>
                                 <div className="file-uploader-formats">
                                     Supported: .ts, .tsx, .js, .jsx, .mjs, .cjs, .json, .css, .html
@@ -242,19 +358,108 @@ export default function Home() {
                                 />
                             </div>
                             {files.length > 0 && (
-                                <div className="file-list">
-                                    {files.map((file, index) => (
-                                        <div key={index} className="file-chip">
-                                            📄 {file.name}
-                                            <button
-                                                className="file-chip-remove"
-                                                onClick={() => removeFile(index)}
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    ))}
+                                <>
+                                    <div className="file-list-header">
+                                        <span className="file-list-count">{files.length} file{files.length !== 1 ? 's' : ''} selected</span>
+                                        <button className="file-clear-btn" onClick={clearFiles}>✕ Clear all</button>
+                                    </div>
+                                    <div className="file-list">
+                                        {files.map((file, index) => (
+                                            <div key={index} className="file-chip">
+                                                📄 {file.name}
+                                                <button
+                                                    className="file-chip-remove"
+                                                    onClick={() => removeFile(index)}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <div
+                                className={`file-uploader folder-uploader ${dragOver ? 'drag-over' : ''}`}
+                                onDrop={handleDrop}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onClick={() => folderInputRef.current?.click()}
+                            >
+                                <div className="file-uploader-icon">🗂️</div>
+                                <div className="file-uploader-title">
+                                    Click to select a project folder
                                 </div>
+                                <div className="file-uploader-text">
+                                    Upload your entire React or Next.js project folder
+                                </div>
+                                <div className="file-uploader-formats">
+                                    Scans all .ts, .tsx, .js, .jsx, .json, .css, .html files recursively
+                                </div>
+                                <div className="folder-upload-hints">
+                                    <span className="folder-hint">✅ Auto-skips node_modules, .next, .git, dist</span>
+                                    <span className="folder-hint">✅ Preserves folder structure in results</span>
+                                </div>
+                                <input
+                                    ref={folderInputRef}
+                                    type="file"
+                                    /* @ts-expect-error webkitdirectory is not in TypeScript types */
+                                    webkitdirectory="true"
+                                    directory="true"
+                                    multiple
+                                    onChange={handleFileSelect}
+                                    style={{ display: 'none' }}
+                                />
+                            </div>
+                            {files.length > 0 && (
+                                <>
+                                    <div className="file-list-header">
+                                        <span className="file-list-count">
+                                            📁 {files.length} file{files.length !== 1 ? 's' : ''} loaded
+                                            {folderStructure.size > 0 && ` from ${folderStructure.size} folder${folderStructure.size !== 1 ? 's' : ''}`}
+                                        </span>
+                                        <button className="file-clear-btn" onClick={clearFiles}>✕ Clear all</button>
+                                    </div>
+                                    {/* Folder tree */}
+                                    <div className="folder-tree">
+                                        {Array.from(folderStructure.entries())
+                                            .sort(([a], [b]) => a.localeCompare(b))
+                                            .slice(0, 20)
+                                            .map(([folder, count]) => (
+                                                <div key={folder} className="folder-tree-item">
+                                                    <span className="folder-tree-icon">📁</span>
+                                                    <span className="folder-tree-path">{folder}</span>
+                                                    <span className="folder-tree-count">{count} file{count !== 1 ? 's' : ''}</span>
+                                                </div>
+                                            ))}
+                                        {folderStructure.size > 20 && (
+                                            <div className="folder-tree-item more">
+                                                ...and {folderStructure.size - 20} more folders
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* File chips */}
+                                    <div className="file-list">
+                                        {files.slice(0, 50).map((file, index) => (
+                                            <div key={index} className="file-chip">
+                                                📄 {file.path}
+                                                <button
+                                                    className="file-chip-remove"
+                                                    onClick={() => removeFile(index)}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {files.length > 50 && (
+                                            <div className="file-chip more-chip">
+                                                +{files.length - 50} more files
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
                             )}
                         </>
                     )}
@@ -283,7 +488,7 @@ export default function Home() {
                         <div className="scanning-icon">🔍</div>
                         <div className="scanning-text">Analyzing your code...</div>
                         <div className="scanning-subtext">
-                            Checking for 40+ vulnerability patterns across 8 categories
+                            Checking for {vulnerabilityRules.length} vulnerability patterns across 8 categories
                         </div>
                     </div>
                 )}
@@ -390,7 +595,7 @@ export default function Home() {
                                 <div className="no-results-icon">🎉</div>
                                 <div className="no-results-title">No Vulnerabilities Found!</div>
                                 <div className="no-results-text">
-                                    Your code passed all 40+ security checks. Great job keeping your code secure!
+                                    Your code passed all {vulnerabilityRules.length} security checks. Great job keeping your code secure!
                                 </div>
                             </div>
                         ) : (
@@ -399,7 +604,7 @@ export default function Home() {
                                     <div
                                         key={vuln.id}
                                         className="vuln-card"
-                                        style={{ animationDelay: `${index * 50}ms` }}
+                                        style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
                                     >
                                         <div
                                             className="vuln-card-header"
