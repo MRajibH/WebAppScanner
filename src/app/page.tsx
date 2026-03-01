@@ -192,7 +192,7 @@ export default function Home() {
                     <div className="header-logo-icon">🛡️</div>
                     <div>
                         <div className="header-title">SecureScan</div>
-                        <div className="header-subtitle">React & Next.js Security Scanner</div>
+                        <div className="header-subtitle">Multi-Language Code Security Scanner</div>
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
