@@ -4,6 +4,8 @@ import { useState, useCallback, useRef, DragEvent, ChangeEvent } from 'react';
 import { scanFiles } from '@/lib/scanner/scanner';
 import { vulnerabilityRules } from '@/lib/scanner/rules';
 import { ScanResult, FileInput, Severity, Category, CATEGORY_LABELS, SEVERITY_COLORS } from '@/lib/scanner/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const VALID_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css', '.html', '.py', '.php', '.go', '.c', '.cpp', '.h', '.hpp', '.cc', '.cxx'];
 const IGNORED_DIRS = ['node_modules', '.next', '.git', 'dist', 'build', '.cache', 'coverage', '__pycache__'];
@@ -150,6 +152,114 @@ export default function Home() {
         a.download = `security-scan-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
+    }, [result]);
+
+    const exportPdf = useCallback(() => {
+        if (!result) return;
+
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(22);
+        doc.setTextColor(40, 40, 40);
+        doc.text('SecureScan Security Report', 14, 22);
+
+        // Date and Meta
+        doc.setFontSize(11);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+        doc.text(`Files Scanned: ${result.totalFiles}`, 14, 36);
+        doc.text(`Scan Duration: ${result.duration}ms`, 14, 42);
+
+        // Summary Table
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text('Scan Summary', 14, 55);
+
+        const summaryData = [
+            ['Critical', result.summary.critical.toString()],
+            ['High', result.summary.high.toString()],
+            ['Medium', result.summary.medium.toString()],
+            ['Low', result.summary.low.toString()],
+            ['Info', result.summary.info.toString()],
+            ['Total', result.summary.total.toString()],
+        ];
+
+        autoTable(doc, {
+            startY: 60,
+            head: [['Severity', 'Count']],
+            body: summaryData,
+            theme: 'grid',
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            styles: { fontSize: 11 },
+            columnStyles: {
+                0: { fontStyle: 'bold' }
+            },
+            didParseCell: function (data) {
+                if (data.section === 'body' && data.column.index === 0) {
+                    const severity = data.cell.raw as string;
+                    switch (severity.toLowerCase()) {
+                        case 'critical': data.cell.styles.textColor = [220, 38, 38]; break; // Red
+                        case 'high': data.cell.styles.textColor = [234, 88, 12]; break; // Orange
+                        case 'medium': data.cell.styles.textColor = [202, 138, 4]; break; // Yellow
+                        case 'low': data.cell.styles.textColor = [37, 99, 235]; break; // Blue
+                        case 'info': data.cell.styles.textColor = [71, 85, 105]; break; // Gray
+                        case 'total': data.cell.styles.fontStyle = 'bold'; data.cell.styles.textColor = [15, 23, 42]; break;
+                    }
+                }
+            }
+        });
+
+        // Detailed Findings
+        let finalY = (doc as any).lastAutoTable.finalY || 60;
+
+        if (result.vulnerabilities.length > 0) {
+            doc.setFontSize(14);
+            doc.setTextColor(40, 40, 40);
+            doc.text('Detailed Findings', 14, finalY + 15);
+
+            const tableData = result.vulnerabilities.map(v => [
+                v.severity.toUpperCase(),
+                v.ruleId,
+                `${v.file}:${v.line}`,
+                v.name,
+                v.description
+            ]);
+
+            autoTable(doc, {
+                startY: finalY + 20,
+                head: [['Severity', 'ID', 'Location', 'Name', 'Description']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [52, 73, 94], textColor: 255 },
+                styles: { fontSize: 9, cellPadding: 3 },
+                columnStyles: {
+                    0: { cellWidth: 22, fontStyle: 'bold' },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 40 },
+                    3: { cellWidth: 40 },
+                    4: { cellWidth: 'auto' }
+                },
+                didParseCell: function (data) {
+                    if (data.section === 'body' && data.column.index === 0) {
+                        const severity = data.cell.raw as string;
+                        switch (severity.toLowerCase()) {
+                            case 'critical': data.cell.styles.textColor = [220, 38, 38]; break;
+                            case 'high': data.cell.styles.textColor = [234, 88, 12]; break;
+                            case 'medium': data.cell.styles.textColor = [202, 138, 4]; break;
+                            case 'low': data.cell.styles.textColor = [37, 99, 235]; break;
+                            case 'info': data.cell.styles.textColor = [100, 116, 139]; break;
+                        }
+                    }
+                }
+            });
+        } else {
+            doc.setFontSize(12);
+            doc.setTextColor(22, 163, 74); // Green
+            doc.text('No vulnerabilities found. Code is secure!', 14, finalY + 15);
+        }
+
+        doc.save(`security-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     }, [result]);
 
     const filteredVulnerabilities = result?.vulnerabilities.filter(v => {
@@ -514,6 +624,9 @@ export default function Home() {
                                 </span>
                                 <button className="export-button" onClick={exportResults}>
                                     📥 Export JSON
+                                </button>
+                                <button className="export-button pdf" onClick={exportPdf}>
+                                    📄 Export PDF
                                 </button>
                             </div>
                         </div>

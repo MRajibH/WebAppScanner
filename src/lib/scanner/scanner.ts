@@ -46,6 +46,18 @@ export function scanFile(file: FileInput): Vulnerability[] {
         while ((match = regex.exec(file.content)) !== null) {
             const lineNumber = getLineNumber(file.content, match.index);
             const column = getColumn(file.content, match.index);
+
+            // Check if the match is inside a single-line comment
+            // We do this by getting the current line's text up to the match index
+            // and checking if it contains '//'
+            const currentLineBeforeMatch = file.content.substring(match.index - column, match.index);
+
+            // If the line has '//' before our match, we skip it
+            // (Unless the rule specifically targets comments, e.g., eslint-disable checks)
+            if (currentLineBeforeMatch.includes('//') && !rule.pattern.source.includes('\\/\\/')) {
+                continue;
+            }
+
             const codeSnippet = getCodeSnippet(file.content, lineNumber);
 
             vulnerabilities.push({
